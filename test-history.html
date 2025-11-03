@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test History API</title>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        pre {
+            background: #f0f0f0;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .error {
+            color: #f44336;
+        }
+        .success {
+            color: #4CAF50;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background: #f0f0f0;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin: 10px 0;
+        }
+        .stat-card {
+            background: #f9f9f9;
+            padding: 10px;
+            border-radius: 4px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+        }
+        .stat-label {
+            font-size: 14px;
+            color: #666;
+        }
+        .warning {
+            color: #ff9800;
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Tautulli History API Test</h1>
+    
+    <div class="test-section">
+        <h2>Configuration</h2>
+        <p>Make sure your Tautulli configuration is loaded first.</p>
+        <div class="warning" id="config-warning" style="display: none;">
+            ⚠️ Test configuration detected! You may want to update this with your real Tautulli settings.
+        </div>
+        <button onclick="testLoadConfig()">Load Current Config</button>
+        <button onclick="clearTestConfig()">Clear Test Config</button>
+        <pre id="config-result"></pre>
+    </div>
+
+    <div class="test-section">
+        <h2>Test History API</h2>
+        <div style="margin: 10px 0;">
+            <label>Days to fetch: 
+                <input type="number" id="days-input" value="10" min="1" max="365">
+            </label>
+        </div>
+        <button onclick="testHistory()">Fetch History</button>
+        <div id="history-stats" class="stats"></div>
+        <pre id="history-result"></pre>
+    </div>
+
+    <div class="test-section">
+        <h2>Session Details</h2>
+        <div id="session-table"></div>
+    </div>
+
+    <!-- Load scripts in non-module mode -->
+    <script src="js/config.js"></script>
+    <script src="js/tautulli-api.js"></script>
+    <script>
+        // Global functions for button onclick handlers
+        
+        async function testLoadConfig() {
+            const resultEl = document.getElementById('config-result');
+            const warningEl = document.getElementById('config-warning');
+            
+            try {
+                resultEl.textContent = 'Loading configuration...';
+                
+                // Wait for config to be loaded if not already
+                if (!config.isConfigured() && typeof config.loadConfig === 'function') {
+                    await config.loadConfig();
+                }
+                
+                const configData = {
+                    tautulliUrl: config.get('tautulliUrl'),
+                    apiKey: config.get('apiKey') ? config.get('apiKey').substring(0, 10) + '***' : 'Not set',
+                    serverLat: config.get('serverLat'),
+                    serverLon: config.get('serverLon'),
+                    isConfigured: config.isConfigured()
+                };
+                
+                // Show warning if test config is detected
+                if (config.get('tautulliUrl') === 'http://test-server:8181') {
+                    warningEl.style.display = 'block';
+                } else {
+                    warningEl.style.display = 'none';
+                }
+                
+                resultEl.innerHTML = `<span class="success">Configuration loaded!</span>\n${JSON.stringify(configData, null, 2)}`;
+            } catch (error) {
+                resultEl.innerHTML = `<span class="error">Failed to load config!</span>\nError: ${error.message}`;
+            }
+        }
+        
+        async function clearTestConfig() {
+            const resultEl = document.getElementById('config-result');
+            try {
+                // Clear server config by posting empty config
+                const response = await fetch('/api/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                });
+                
+                if (response.ok) {
+                    // Also clear localStorage
+                    localStorage.removeItem('tautulli-map-config');
+                    resultEl.innerHTML = '<span class="success">Test configuration cleared! Please reload the page.</span>';
+                    
+                    // Reload after 2 seconds
+                    setTimeout(() => location.reload(), 2000);
+                } else {
+                    throw new Error('Failed to clear server config');
+                }
+            } catch (error) {
+                resultEl.innerHTML = `<span class="error">Failed to clear config!</span>\nError: ${error.message}`;
+            }
+        }
+        
+        async function testHistory() {
+            const resultEl = document.getElementById('history-result');
+            const statsEl = document.getElementById('history-stats');
+            const tableEl = document.getElementById('session-table');
+            const days = parseInt(document.getElementById('days-input').value);
+            
+            if (!config || !config.isConfigured()) {
+                resultEl.innerHTML = '<span class="error">Please load configuration first!</span>';
+                return;
+            }
+            
+            try {
+                resultEl.textContent = `Fetching ${days} days of history...`;
+                statsEl.innerHTML = '';
+                tableEl.innerHTML = '';
+                
+                // Use the API
+                const api = new TautulliAPI(config);
+                
+                // Test the raw API first
+                const endDate = new Date();
+                const startDate = new Date();
+                startDate.setDate(startDate.getDate() - days);
+                
+                const formatDate = (date) => date.toISOString().split('T')[0];
+                
+                console.log('Testing raw history API...');
+                const rawHistory = await api.getHistory(formatDate(startDate), formatDate(endDate));
+                console.log('Raw history:', rawHistory);
+                
+                // Get processed history
+                const history = await api.getHistoryDays(days);
+                
+                // Calculate statistics
+                const uniqueUsers = new Set();
+                const uniqueIPs = new Set();
+                const userSessions = {};
+                
+                history.forEach(session => {
+                    uniqueUsers.add(session.username);
+                    if (session.ipAddress && session.ipAddress !== 'Unknown') {
+                        uniqueIPs.add(session.ipAddress);
+                    }
+                    
+                    if (!userSessions[session.username]) {
+                        userSessions[session.username] = [];
+                    }
+                    userSessions[session.username].push(session);
+                });
+                
+                // Display statistics
+                statsEl.innerHTML = `
+                    <div class="stat-card">
+                        <div class="stat-value">${history.length}</div>
+                        <div class="stat-label">Total Sessions</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${uniqueUsers.size}</div>
+                        <div class="stat-label">Unique Users</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${uniqueIPs.size}</div>
+                        <div class="stat-label">Unique IPs</div>
+                    </div>
+                `;
+                
+                // Create session table
+                let tableHTML = '<h3>Sessions by User</h3><table><thead><tr><th>User</th><th>Sessions</th><th>Total Time</th><th>Last Session</th><th>Location</th></tr></thead><tbody>';
+                
+                Object.entries(userSessions).forEach(([username, sessions]) => {
+                    const totalTime = sessions.reduce((sum, s) => sum + (s.watchedDuration || 0), 0);
+                    const lastSession = sessions[sessions.length - 1];
+                    const location = lastSession.location ? `${lastSession.location.city}, ${lastSession.location.country}` : 'Unknown';
+                    
+                    tableHTML += `<tr>
+                        <td>${username}</td>
+                        <td>${sessions.length}</td>
+                        <td>${Math.floor(totalTime / 3600)}h ${Math.floor((totalTime % 3600) / 60)}m</td>
+                        <td>${new Date(lastSession.startTime).toLocaleDateString()}</td>
+                        <td>${location}</td>
+                    </tr>`;
+                });
+                
+                tableHTML += '</tbody></table>';
+                tableEl.innerHTML = tableHTML;
+                
+                // Show sample sessions
+                const sampleSessions = history.slice(0, 5).map(s => ({
+                    user: s.username,
+                    media: s.media.title,
+                    date: new Date(s.startTime).toLocaleDateString(),
+                    ip: s.ipAddress,
+                    location: s.location ? `${s.location.city}, ${s.location.country}` : 'No location',
+                    bandwidth: s.stream.bandwidth
+                }));
+                
+                resultEl.innerHTML = `<span class="success">History loaded successfully!</span>
+                
+Raw API returned: ${rawHistory.length} records
+Processed: ${history.length} sessions
+
+Sample sessions:
+${JSON.stringify(sampleSessions, null, 2)}
+
+Full data available in console.`;
+                
+                // Log full data for debugging
+                console.log('Full history data:', history);
+                console.log('User sessions:', userSessions);
+                
+            } catch (error) {
+                console.error('History test failed:', error);
+                resultEl.innerHTML = `<span class="error">Failed to fetch history!</span>\nError: ${error.message}\n\nCheck console for details.`;
+            }
+        }
+        
+        // Auto-load config on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(testLoadConfig, 500);
+        });
+    </script>
+</body>
+</html>

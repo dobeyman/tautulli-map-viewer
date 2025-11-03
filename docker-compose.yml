@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  tautulli-map-viewer:
+    build: .
+    image: tautulli-map-viewer:latest
+    container_name: tautulli-map-viewer
+    ports:
+      - "8187:8188"
+    volumes:
+      - ./config:/app/config
+    restart: unless-stopped
+    environment:
+      - TZ=Europe/Paris
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:8188/api/config', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

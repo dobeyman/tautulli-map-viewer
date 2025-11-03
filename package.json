@@ -1,0 +1,13 @@
+{
+  "name": "tautulli-map-viewer",
+  "version": "1.0.0",
+  "description": "Tautulli Map Viewer with server-side configuration",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5"
+  }
+}

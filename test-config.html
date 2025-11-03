@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Configuration API</title>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        pre {
+            background: #f0f0f0;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        .error {
+            color: #f44336;
+        }
+        .success {
+            color: #4CAF50;
+        }
+    </style>
+</head>
+<body>
+    <h1>Configuration API Test</h1>
+    
+    <div class="test-section">
+        <h2>1. Test API Connection</h2>
+        <button onclick="testConnection()">Test Connection</button>
+        <pre id="connection-result"></pre>
+    </div>
+
+    <div class="test-section">
+        <h2>2. Load Configuration</h2>
+        <button onclick="loadConfig()">Load Config</button>
+        <pre id="load-result"></pre>
+    </div>
+
+    <div class="test-section">
+        <h2>3. Save Configuration</h2>
+        <button onclick="saveConfig()">Save Test Config</button>
+        <pre id="save-result"></pre>
+    </div>
+
+    <div class="test-section">
+        <h2>4. Test localStorage</h2>
+        <button onclick="testLocalStorage()">Test localStorage</button>
+        <pre id="localstorage-result"></pre>
+    </div>
+
+    <script>
+        const API_URL = '/api/config';
+
+        async function testConnection() {
+            const resultEl = document.getElementById('connection-result');
+            try {
+                resultEl.textContent = 'Testing connection...';
+                const response = await fetch(API_URL);
+                resultEl.innerHTML = `<span class="success">Connection successful!</span>\nStatus: ${response.status}\nOK: ${response.ok}`;
+            } catch (error) {
+                resultEl.innerHTML = `<span class="error">Connection failed!</span>\nError: ${error.message}`;
+            }
+        }
+
+        async function loadConfig() {
+            const resultEl = document.getElementById('load-result');
+            try {
+                resultEl.textContent = 'Loading configuration...';
+                const response = await fetch(API_URL);
+                const data = await response.json();
+                resultEl.innerHTML = `<span class="success">Config loaded!</span>\n${JSON.stringify(data, null, 2)}`;
+            } catch (error) {
+                resultEl.innerHTML = `<span class="error">Load failed!</span>\nError: ${error.message}`;
+            }
+        }
+
+        async function saveConfig() {
+            const resultEl = document.getElementById('save-result');
+            const testConfig = {
+                tautulliUrl: 'http://test-server:8181',
+                apiKey: 'test-api-key-12345',
+                serverLat: 48.856614,
+                serverLon: 2.352222,
+                refreshInterval: 30,
+                mapStyle: 'dark'
+            };
+
+            try {
+                resultEl.textContent = 'Saving configuration...';
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(testConfig)
+                });
+                const data = await response.json();
+                resultEl.innerHTML = `<span class="success">Config saved!</span>\nSaved data: ${JSON.stringify(testConfig, null, 2)}\nResponse: ${JSON.stringify(data, null, 2)}`;
+            } catch (error) {
+                resultEl.innerHTML = `<span class="error">Save failed!</span>\nError: ${error.message}`;
+            }
+        }
+
+        function testLocalStorage() {
+            const resultEl = document.getElementById('localstorage-result');
+            try {
+                // Test write
+                localStorage.setItem('test-key', 'test-value');
+                
+                // Test read
+                const value = localStorage.getItem('test-key');
+                
+                // Get current config from localStorage
+                const configData = localStorage.getItem('tautulli-map-config');
+                
+                resultEl.innerHTML = `<span class="success">localStorage is working!</span>\nTest value: ${value}\n\nCurrent config in localStorage:\n${configData ? JSON.stringify(JSON.parse(configData), null, 2) : 'No config stored'}`;
+                
+                // Clean up
+                localStorage.removeItem('test-key');
+            } catch (error) {
+                resultEl.innerHTML = `<span class="error">localStorage test failed!</span>\nError: ${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html>
