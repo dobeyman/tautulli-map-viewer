@@ -1,6 +1,7 @@
 # Tautulli Map Viewer
 
 Une interface web interactive qui affiche une carte en temps réel des utilisateurs actifs de Plex en utilisant les données de Tautulli.
+![20251103_225410](https://github.com/user-attachments/assets/1b26fc8c-800e-4b2b-8402-13d7b1452888)
 
 ## Fonctionnalités
 
@@ -184,5 +185,6 @@ Le système utilise une approche hybride :
 Ce projet est fourni tel quel pour usage personnel. Veuillez respecter les conditions d'utilisation de Tautulli et Plex.
 
 ## Contribution
+
 
 Les suggestions et améliorations sont les bienvenues ! N'hésitez pas à proposer des modifications.
